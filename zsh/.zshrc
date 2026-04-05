@@ -79,6 +79,7 @@ ZSH_THEME=""
 plugins=(git zsh-syntax-highlighting zsh-autosuggestions)
 
 source $ZSH/oh-my-zsh.sh
+eval "$(zoxide init zsh)"
 
 # User configuration
 
@@ -108,5 +109,13 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+#
+alias ls="eza --icons"
+alias ll="eza --icons --long"
+alias la="eza --icons --long --all"
+
+alias cat="bat"
+#
+#
 export PATH=$HOME/.local/bin:$PATH
 export PATH=$PATH:/usr/local/share/dotnet
