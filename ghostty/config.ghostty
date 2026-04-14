@@ -58,7 +58,7 @@ font-size = 14
 
 # Appearance
 #theme = catppuccin-mocha
-window-decoration = false
+window-decoration = true
 
 # Shell integration
 shell-integration = zsh
