@@ -51,7 +51,6 @@ confirm-close-surface = false
 copy-on-select = true
 # Font
 font-family = JetBrains Mono
-font-size = 14
 
 # Appearance
 #theme = catppuccin-mocha
@@ -63,3 +62,5 @@ shell-integration = zsh
 # Behavior
 confirm-close-surface = false
 copy-on-select = true
+
+config-file = ~/.config/ghostty/local.ghostty
