@@ -42,9 +42,6 @@
 # # Just for example:
 # resize-overlay-duration = 4s 200ms testy
 
-# Appearance
-#theme = catppuccin-mocha
-window-decoration = client
 
 # Shell integration
 shell-integration=zsh
