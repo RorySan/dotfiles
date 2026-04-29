@@ -116,6 +116,7 @@ alias la="eza --icons --long --all"
 
 alias cat="bat"
 alias lg="lazygit"
+alias lzd="lazydocker"
 alias cd="z"
 #
 #
