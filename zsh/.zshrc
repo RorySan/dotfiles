@@ -114,16 +114,15 @@ alias ls="eza --icons"
 alias ll="eza --icons --long"
 alias la="eza --icons --long --all"
 
-alias cat="bat"
 alias lg="lazygit"
 alias lzd="lazydocker"
-alias cd="z"
-#
+alias c="z"
+alias zel="zellij"
 #
 export PATH=$HOME/.local/bin:$PATH
 export PATH=$PATH:/usr/local/share/dotnet
 
 source ~/.env.lexiway
 alias snapit="sudo snapper -c root create --description"
-alias upd="sudo dnf update && flatpak update"
+alias upd="sudo dnf update && flatpak update && claude update"
 
