@@ -1,0 +1,7 @@
+[Unit]
+Description=Restart a self-hosted Actions runner that has hung with a job queued
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/runner-watchdog

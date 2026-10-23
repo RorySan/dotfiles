@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Restarts a self-hosted Actions runner whose listener has hung. A hung listener still
+# shows online to GitHub, runs nothing, and never exits, so systemd's Restart= never
+# fires: jobs just sit queued. Run every few minutes by runner-watchdog.timer.
+#
+# The runners are found, not listed: every RUNNERS folder holding a `.runner` file (its
+# name and repo), run by the user unit whose WorkingDirectory is that folder.
+#
+# A runner is stuck when, on two checks in a row, the same job has been queued longer
+# than GRACE, the runner could take it (its labels hold every label the job asks for),
+# and no job is running on it. Then its unit is restarted, at most once per COOLDOWN.
+set -uo pipefail
+
+GRACE=${GRACE:-300}
+COOLDOWN=${COOLDOWN:-900}
+RUNNERS=${RUNNERS:-$HOME/actions-runner*}
+STATE=${STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/runner-watchdog}
+DRY_RUN=${DRY_RUN:-}
+
+mkdir -p "$STATE"
+now=$(date +%s)
+
+# "<WorkingDirectory> <unit>" for every user service that has one.
+units_by_folder() {
+  local services
+  # Unit files, and loaded units for the instances of a template (`name@folder.service`).
+  mapfile -t services < <({
+    systemctl --user list-unit-files --type=service --no-legend
+    systemctl --user list-units --type=service --all --no-legend --plain
+  } | awk '$1 !~ /@\.service$/ { print $1 }' | sort -u)
+  ((${#services[@]})) || return
+  # One block per unit, blank-line separated; the properties come in systemd's order.
+  systemctl --user show -p Id -p WorkingDirectory "${services[@]}" |
+    awk -F= '$1 == "Id" { id = $2 } $1 == "WorkingDirectory" { wd = $2 }
+             /^$/ { if (wd != "") print wd, id; id = wd = "" }
+             END { if (wd != "") print wd, id }'
+}
+
+# The oldest job queued longer than GRACE that a runner with these labels could take,
+# as "<job id> <seconds queued>", or nothing.
+oldest_stuck_job() {
+  local repo=$1 labels=$2 status ids id jobs all=""
+  for status in queued in_progress; do
+    ids=$(gh api "repos/$repo/actions/runs?status=$status&per_page=30" \
+      --jq '.workflow_runs[].id') || return 1
+    for id in $ids; do
+      jobs=$(gh api "repos/$repo/actions/runs/$id/jobs?filter=latest" |
+        jq -r --argjson now "$now" --argjson labels "$labels" \
+          '.jobs[] | select(.status == "queued")
+           | select(.labels - $labels == [])
+           | "\(.id) \($now - (.created_at | fromdate))"') || return 1
+      all+="$jobs"$'\n'
+    done
+  done
+  awk -v grace="$GRACE" 'NF == 2 && $2 > grace' <<<"$all" | sort -k2,2nr | head -n 1
+}
+
+check() {
+  local dir=$1 unit=$2 name repo labels stuck job age mark last
+  mark="$STATE/${unit%.service}"
+
+  # A job running here: never restart under it.
+  if pgrep -f "$dir/bin/Runner.Worker" >/dev/null; then
+    rm -f "$mark.seen"
+    return
+  fi
+
+  name=$(jq -r .agentName "$dir/.runner") || return
+  repo=$(jq -r '.gitHubUrl | sub("^https://github.com/"; "")' "$dir/.runner") || return
+  labels=$(gh api "repos/$repo/actions/runners" \
+    --jq "[.runners[] | select(.name == \"$name\") | .labels[].name]") || {
+    echo "$unit: GitHub unreachable, nothing done"
+    return
+  }
+
+  stuck=$(oldest_stuck_job "$repo" "$labels") || {
+    echo "$unit: GitHub unreachable, nothing done"
+    return
+  }
+  read -r job age <<<"$stuck"
+  if [[ -z ${job:-} ]]; then
+    rm -f "$mark.seen"
+    return
+  fi
+
+  # First sighting: the runner may be just between two jobs. Wait for the next check.
+  if [[ $(cat "$mark.seen" 2>/dev/null) != "$job" ]]; then
+    echo "$job" >"$mark.seen"
+    echo "$unit: job $job queued ${age}s and the runner is idle; checking again next time"
+    return
+  fi
+
+  last=$(cat "$mark.restarted" 2>/dev/null || echo 0)
+  if ((now - last < COOLDOWN)); then
+    echo "$unit: job $job still queued ${age}s, but restarted $((now - last))s ago; waiting"
+    return
+  fi
+
+  echo "$unit: job $job queued ${age}s and the runner is idle; restarting it"
+  if [[ -n $DRY_RUN ]]; then
+    echo "$unit: DRY_RUN, not restarted"
+    return
+  fi
+  systemctl --user restart "$unit" && echo "$now" >"$mark.restarted"
+  rm -f "$mark.seen"
+}
+
+folders=$(units_by_folder)
+for dir in $RUNNERS; do
+  [[ -f $dir/.runner ]] || continue
+  unit=$(awk -v d="$dir" '$1 == d { print $2; exit }' <<<"$folders")
+  if [[ -z $unit ]]; then
+    echo "$dir: a runner with no user unit running it; skipped"
+    continue
+  fi
+  check "$dir" "$unit"
+done

@@ -1,0 +1,15 @@
+[Unit]
+Description=GitHub Actions runner (RorySan/autogasto-legacy)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/actions-runner-legacy
+ExecStart=%h/actions-runner-legacy/run.sh
+Restart=always
+RestartSec=10
+# run.sh exits on SIGINT and lets a running job finish.
+KillSignal=SIGINT
+TimeoutStopSec=5min
+
+[Install]
+WantedBy=default.target
