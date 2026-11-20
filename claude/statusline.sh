@@ -191,11 +191,12 @@ d7=$(limit 7d "$d7_pct" "$d7_reset")
 # --- session cost (list-price estimate; notional on a subscription) ---
 [ -n "$cost" ] && cost=$(printf '$%.2f' "$cost")
 
-# --- model: Fable is the expensive planner, so it must be unmissable ---
+# --- model: Fable (orange) and Sonnet (magenta) are highlighted blocks; Opus is the plain default ---
 [ -n "$model" ] && [ -n "$effort" ] && model+=" · ${effort}"
 case "${model_id,,} ${model,,}" in
   " ")     ;;
   *fable*) model=$'\e[48;5;208;30;1m'" ◆ ${model} "${RESET} ;;  # orange block
+  *sonnet*) model=$'\e[45;97;1m'" ▲ ${model} "${RESET} ;;  # magenta block: not the intended model
   *opus*)  model="${GREEN}${model}${RESET}" ;;
   *)       model="${DIM}${model}${RESET}" ;;
 esac
