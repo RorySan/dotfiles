@@ -64,3 +64,6 @@ confirm-close-surface = false
 copy-on-select = true
 
 config-file = ~/.config/ghostty/local.ghostty
+
+# Free ctrl+enter for apps (default was toggle_fullscreen)
+keybind = ctrl+enter=unbind
